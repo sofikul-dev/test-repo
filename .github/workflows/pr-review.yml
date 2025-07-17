@@ -25,7 +25,7 @@ jobs:
 
     - name: Install dependencies
       run: npm install
-      working-directory: repo/test-repo
+      working-directory: repo
 
     - name: Run PR Review Bot
       env:
@@ -34,5 +34,5 @@ jobs:
         REPO_OWNER: ${{ github.repository_owner }}
         REPO_NAME: ${{ github.event.repository.name }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
-      run: node index.js
-      working-directory: repo/test-repo
+      run: node pr-review.js
+      working-directory: repo
