@@ -28,7 +28,6 @@ async function generateCommentsFromLLM(diff) {
 Review ONLY the provided diff.
 - Focus on **null checks, error handling, security, performance, or clarity issues**.
 - **DO NOT assume problems with class design, static vs instance methods, or unrelated code unless explicitly shown in the diff.**
-- Ignore method type assumptions unless they are visible in the code change.
 - Provide max 3 critical review comments.
 
 Respond in JSON:
@@ -112,13 +111,15 @@ function mapCommentsToDiff(diff, llmComments) {
   return mapped;
 }
 
-async function submitReview(mappedComments) {
+async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
 
   const payload = {
-    event: 'REQUEST_CHANGES',
-    body: 'Automated PR review found critical issues. See inline comments.',
-    comments: mappedComments,
+    event: mode, // 'REQUEST_CHANGES' or 'APPROVE'
+    body: mode === 'APPROVE'
+      ? 'All issues are resolved. Approving the PR ✅'
+      : 'Automated PR review found critical issues. See inline comments.',
+    comments: mode === 'REQUEST_CHANGES' ? mappedComments : undefined,
   };
 
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
@@ -130,7 +131,7 @@ async function submitReview(mappedComments) {
     },
   });
 
-  console.log('Review submitted:', res.data.id);
+  console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
 }
 
 async function main() {
@@ -149,9 +150,9 @@ async function main() {
     console.log('Mapped Comments:', mapped);
 
     if (mapped.length > 0) {
-      await submitReview(mapped);
+      await submitReview(mapped, 'REQUEST_CHANGES');
     } else {
-      console.log('No valid comments to submit.');
+      await submitReview([], 'APPROVE');
     }
 
   } catch (err) {
