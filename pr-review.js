@@ -203,7 +203,7 @@ async function approvePullRequest(body) {
     let errorMsg = `Error approving PR: ${error.message}`;
     if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
     if (error.status) errorMsg += ` | status: ${error.status}`;
-    console.error(JSON.stringify('Approve error: ', error));
+    console.error(JSON.stringify('Approve error: ', JSON.stringify(error)));
     throw error;
   }
 }
