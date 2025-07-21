@@ -194,9 +194,9 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     if (error.response && error.response.status === 401) {
       console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
     } else {
-      console.error(`Error approving PR: ${error.message}`);
+      console.error(`Error approving PR: ${error.errors}`);
     }
-    console.error(`Error approving PR: ${error.name} ${error.message}`);
+    console.error(`Error approving PR: ${error.errors}`);
     throw error;
   }
 }
@@ -274,7 +274,15 @@ async function main() {
     if (!previousCache) {
       console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
-      await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+      const event = mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE';
+      console.log(`Submitting first review with event: ${event}`);
+      if(event === 'REQUEST_CHANGES') {
+        console.log(`Submitting review with ${mapped.length} comments.`);
+        await submitReview(mapped, 'REQUEST_CHANGES');
+      } else {
+        console.log('No comments found, approving PR.');
+        await approvePullRequest();
+      }
     } else {
       const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
       const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
