@@ -75,8 +75,6 @@ export default {
 	}
 	const url = new URL(request.url);
 
-	console.log("Request URL:", url.pathname);
-
 	if (url.pathname === "/sse" || url.pathname === "/sse/message") {
 	  console.log("Handling SSE request");
 	  return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
