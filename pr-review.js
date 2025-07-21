@@ -302,7 +302,7 @@ async function main() {
       if (relevantFixes.length === 0) {
         console.log('All previous issues are resolved. Approving.');
         saveReviewCache({ last_commit: currentSha, previous_comments: [] });
-        await approvePullRequest();
+        await approvePullRequest("Looks good to me. Approving.");
       } else {
         console.log('Some issues still remain. Requesting changes again.');
         saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
