@@ -190,9 +190,15 @@ async function loadReviewCache() {
         console.log(`Cache file ${fileName} is empty.`);
         return null;
       }
-      const dataJson = JSON.parse(data);
-      console.log('review cache data:', dataJson);
-      return dataJson;
+      let dataJson;
+      try {
+        dataJson = JSON.parse(data);
+        console.log('review cache data:', dataJson);
+        return dataJson;
+      } catch (parseError) {
+        console.error('Error parsing JSON:', parseError.message);
+        return null;
+      }
     } catch (err) {
       console.error(`Error parsing cache file ${fileName}:`, err.message);
       return null;
@@ -204,8 +210,6 @@ async function main() {
   try {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
-
-    saveReviewCache({ last_commit: 'c98680e323216d2a1781e24603853498a68bf071', previous_comments: {} });
 
     let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
@@ -226,7 +230,6 @@ async function main() {
     const { comments } = await generateCommentsFromLLM(diff);
     const mapped = mapCommentsToDiff(diff, comments);
 
-
     if (!previousCache) {
       console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
@@ -245,7 +248,7 @@ async function main() {
       }
     }
   } catch (err) {
-    console.error(err);
+    console.error('Error in main function:', err.message, err.stack);
   }
 }
 
