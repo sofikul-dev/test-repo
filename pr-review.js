@@ -4,30 +4,56 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import parse from 'parse-diff';
 import { OpenAI } from 'openai';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// List of required environment variables
+const requiredEnvVars = [
+  'OPENAI_API_KEY',
+  'REPO_OWNER',
+  'REPO_NAME',
+  'PR_NUMBER',
+  'GITHUB_TOKEN'
+];
 
+// Check for missing environment variables
+const missingVars = requiredEnvVars.filter((key) => !process.env[key] || process.env[key].trim() === '');
+if (missingVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GITHUB_API = 'https://api.github.com';
 
-async function getPrDiff() {
-  const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
-  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`;
+function getCacheFileName() {
+  const { REPO_OWNER, REPO_NAME, PR_NUMBER } = process.env;
+  const workspace = process.env.GITHUB_WORKSPACE || '.';
+  return path.join(workspace, `.bot-pr-review-${REPO_OWNER}-${REPO_NAME}-pr${PR_NUMBER}.json`);
+}
 
-  const res = await axios.get(url, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
-  });
 
-  return res.data;
+async function getDiffFromCommits(base, head) {
+  const { REPO_OWNER, REPO_NAME, GITHUB_TOKEN } = process.env;
+  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/compare/${base}...${head}`;
+
+  try {
+    const res = await axios.get(url, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
+    });
+    return res.data;
+  } catch (error) {
+    console.error(`Error fetching diff from commits: ${error.message}`);
+    throw error;
+  }
 }
 
 async function generateCommentsFromLLM(diff) {
   const prompt = `You are a senior code reviewer.
 
 Review ONLY the provided diff.
-- Focus on **null checks, error handling, security, performance, or clarity issues**.
-- **DO NOT assume problems with class design, static vs instance methods, or unrelated code unless explicitly shown in the diff.**
+- Focus on null checks, error handling, security, performance, or clarity issues.
 - Provide max 3 critical review comments.
 
 Respond in JSON:
@@ -59,7 +85,7 @@ function mapCommentsToDiff(diff, llmComments) {
     let codeContext = comment.context.trim().toLowerCase();
     let matched = false;
 
-    // Extract key phrases for matching
+    // Extract key phrases
     let keyPhrases = [];
     if (codeContext.includes('{ ... }')) {
       keyPhrases.push(codeContext.replace('{ ... }', '').trim());
@@ -114,49 +140,126 @@ function mapCommentsToDiff(diff, llmComments) {
 async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
 
-  const payload = {
-    event: mode, // 'REQUEST_CHANGES' or 'APPROVE'
-    body: mode === 'APPROVE'
-      ? 'All issues are resolved. Approving the PR ✅'
-      : 'Automated PR review found critical issues. See inline comments.',
-    comments: mode === 'REQUEST_CHANGES' ? mappedComments : undefined,
-  };
+  let payload = { event: mode };
+  if (mode === 'APPROVE') {
+    // body is optional for approve, comments must NOT be present
+    payload.body = "LGTM! Approving.";
+  } else if ((mode === 'REQUEST_CHANGES' || mode === 'COMMENT')) {
+    payload.body = "Automated PR review found critical issues. See inline comments.";
+    if (mappedComments && mappedComments.length > 0) {
+      payload.comments = mappedComments;
+    }
+  }
 
+  console.log(`Submitting review with mode: ${mode}`);
+  console.log(`Payload: ${JSON.stringify(payload, null, 2)}`);
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
 
-  const res = await axios.post(url, payload, {
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github+json',
-    },
-  });
-
-  console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
+  try {
+    const res = await axios.post(url, payload, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+      },
+    });
+    console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
+  } catch (error) {
+    console.error(`Error submitting review: ${error.name} ${error.message}`, error.stack);
+    throw error;
+  }
 }
 
+function saveReviewCache(data) {
+  const fileName = getCacheFileName();
+  console.log(`Saving data ${JSON.stringify(data)}`);
+  console.log(`Saving review cache to ${fileName}`);
+  fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
+}
+
+async function getPrDetails() {
+  const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
+  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`;
+
+  const res = await axios.get(url, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}` },
+  });
+
+  return res.data;
+}
+
+
+async function loadReviewCache() {
+  const fileName = getCacheFileName();
+  console.log(`Loading review cache from ${fileName}`);
+  if (fs.existsSync(fileName)) {
+    console.log(`Cache file exists: ${fileName}`);
+    try {
+      const data = await fs.promises.readFile(fileName, 'utf8');
+      if (!data) {
+        console.log(`Cache file ${fileName} is empty.`);
+        return null;
+      }
+      let dataJson;
+      try {
+        dataJson = JSON.parse(data);
+        console.log('review cache data:', dataJson);
+        return dataJson;
+      } catch (parseError) {
+        console.error('Error parsing JSON:', parseError.message);
+        return null;
+      }
+    } catch (err) {
+      console.error(`Error parsing cache file ${fileName}:`, err.message);
+      return null;
+    }
+  }
+  return null;
+}
 async function main() {
   try {
-    const diff = await getPrDiff();
-    const { comments } = await generateCommentsFromLLM(diff);
-    const filteredComments = comments.filter(c => {
-      const text = c.comment.toLowerCase();
-      return !(text.includes('class') && text.includes('instance')) &&
-             !(text.includes('static method'));
-    });
+    const prDetails = await getPrDetails();
+    const currentSha = prDetails.head.sha;
 
-    console.log('Generated Comments:', filteredComments);
+     saveReviewCache({ last_commit: '954e5d43af10d2cb37a6621cd0d3c609f408e91a', previous_comments: [] });
+    let previousCache = await loadReviewCache();
+    console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
+    let baseSha;
 
-    const mapped = mapCommentsToDiff(diff, filteredComments);
-    console.log('Mapped Comments:', mapped);
-
-    if (mapped.length > 0) {
-      await submitReview(mapped, 'REQUEST_CHANGES');
+    if (!previousCache) {
+      console.log('First review - using base branch sha for diff.');
+      baseSha = prDetails.base.sha;
+    } else if (previousCache.last_commit === currentSha) {
+      console.log('No new commits since last review. Skipping.');
+      return;
     } else {
-      await submitReview([], 'APPROVE');
+      console.log('Re-review - using last reviewed commit for diff.');
+      baseSha = previousCache.last_commit;
     }
 
+    const diff = await getDiffFromCommits(baseSha, currentSha);
+    const { comments } = await generateCommentsFromLLM(diff);
+    const mapped = mapCommentsToDiff(diff, comments);
+
+    if (!previousCache) {
+      console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
+      saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
+      await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+    } else {
+      const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
+      const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
+
+      if (relevantFixes.length === 0) {
+        console.log('All previous issues are resolved. Approving.');
+        saveReviewCache({ last_commit: currentSha, previous_comments: [] });
+        await submitReview(undefined, 'APPROVE'); // <-- Pass undefined instead of []
+      } else {
+        console.log('Some issues still remain. Requesting changes again.');
+        saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
+        await submitReview(relevantFixes, 'REQUEST_CHANGES');
+      }
+    }
   } catch (err) {
-    console.error(err.message);
+    console.error('Error in main function:', err.message, err.stack);
   }
 }
 
