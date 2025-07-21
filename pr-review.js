@@ -4,19 +4,36 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import parse from 'parse-diff';
 import { OpenAI } from 'openai';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const GITHUB_API = 'https://api.github.com';
 
-async function getPrDiff() {
+function getCacheFileName() {
+  const { REPO_OWNER, REPO_NAME, PR_NUMBER } = process.env;
+  return `.bot-pr-review-${REPO_OWNER}-${REPO_NAME}-pr${PR_NUMBER}.json`;
+}
+
+async function getDiffFromCommits(base, head) {
+  const { REPO_OWNER, REPO_NAME, GITHUB_TOKEN } = process.env;
+  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/compare/${base}...${head}`;
+
+  const res = await axios.get(url, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
+  });
+
+  return res.data;
+}
+
+async function getPrDetails() {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`;
 
   const res = await axios.get(url, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
+    headers: { Authorization: `token ${GITHUB_TOKEN}` },
   });
 
   return res.data;
@@ -26,8 +43,7 @@ async function generateCommentsFromLLM(diff) {
   const prompt = `You are a senior code reviewer.
 
 Review ONLY the provided diff.
-- Focus on **null checks, error handling, security, performance, or clarity issues**.
-- **DO NOT assume problems with class design, static vs instance methods, or unrelated code unless explicitly shown in the diff.**
+- Focus on null checks, error handling, security, performance, or clarity issues.
 - Provide max 3 critical review comments.
 
 Respond in JSON:
@@ -59,7 +75,7 @@ function mapCommentsToDiff(diff, llmComments) {
     let codeContext = comment.context.trim().toLowerCase();
     let matched = false;
 
-    // Extract key phrases for matching
+    // Extract key phrases
     let keyPhrases = [];
     if (codeContext.includes('{ ... }')) {
       keyPhrases.push(codeContext.replace('{ ... }', '').trim());
@@ -115,7 +131,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
 
   const payload = {
-    event: mode, // 'REQUEST_CHANGES' or 'APPROVE'
+    event: mode,
     body: mode === 'APPROVE'
       ? 'All issues are resolved. Approving the PR ✅'
       : 'Automated PR review found critical issues. See inline comments.',
@@ -134,29 +150,59 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
 }
 
+function saveReviewCache(data) {
+  fs.writeFileSync(getCacheFileName(), JSON.stringify(data, null, 2));
+}
+
+function loadReviewCache() {
+  const fileName = getCacheFileName();
+  if (fs.existsSync(fileName)) {
+    return JSON.parse(fs.readFileSync(fileName));
+  }
+  return null;
+}
+
 async function main() {
   try {
-    const diff = await getPrDiff();
-    const { comments } = await generateCommentsFromLLM(diff);
-    const filteredComments = comments.filter(c => {
-      const text = c.comment.toLowerCase();
-      return !(text.includes('class') && text.includes('instance')) &&
-             !(text.includes('static method'));
-    });
+    const prDetails = await getPrDetails();
+    const currentSha = prDetails.head.sha;
 
-    console.log('Generated Comments:', filteredComments);
+    let previousCache = loadReviewCache();
+    let baseSha;
 
-    const mapped = mapCommentsToDiff(diff, filteredComments);
-    console.log('Mapped Comments:', mapped);
-
-    if (mapped.length > 0) {
-      await submitReview(mapped, 'REQUEST_CHANGES');
+    if (!previousCache) {
+      console.log('First review - using base branch sha for diff.');
+      baseSha = prDetails.base.sha;
+    } else if (previousCache.last_commit === currentSha) {
+      console.log('No new commits since last review. Skipping.');
+      return;
     } else {
-      await submitReview([], 'APPROVE');
+      console.log('Re-review - using last reviewed commit for diff.');
+      baseSha = previousCache.last_commit;
     }
 
+    const diff = await getDiffFromCommits(baseSha, currentSha);
+    const { comments } = await generateCommentsFromLLM(diff);
+    const mapped = mapCommentsToDiff(diff, comments);
+
+    if (!previousCache) {
+      saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
+      await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+    } else {
+      const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
+      const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
+
+      if (relevantFixes.length === 0) {
+        console.log('All previous issues are resolved. Approving.');
+        await submitReview([], 'APPROVE');
+      } else {
+        console.log('Some issues still remain. Requesting changes again.');
+        saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
+        await submitReview(relevantFixes, 'REQUEST_CHANGES');
+      }
+    }
   } catch (err) {
-    console.error(err.message);
+    console.error(err);
   }
 }
 
