@@ -268,7 +268,6 @@ async function main() {
       baseSha = prDetails.base.sha;
     } else if (previousCache.last_commit === currentSha) {
       console.log('No new commits since last review. Skipping.');
-      await approvePullRequest("Looks good to me. Approving.");
       return;
     } else {
       console.log('Re-review - using last reviewed commit for diff.');
@@ -315,4 +314,60 @@ async function main() {
   }
 }
 
-main();
+// CLI support for manual approval workflow
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  (async () => {
+    if (args.includes('--collect-comments')) {
+      // Collect review comments and output to file, respecting incremental review logic
+      const prDetails = await getPrDetails();
+      const currentSha = prDetails.head.sha;
+      let previousCache = await loadReviewCache();
+      let baseSha;
+      if (!previousCache) {
+        baseSha = prDetails.base.sha;
+      } else if (previousCache.last_commit === currentSha) {
+        console.log('No new commits since last review. Skipping.');
+        fs.writeFileSync('review-comments.json', JSON.stringify([], null, 2));
+        return;
+      } else {
+        baseSha = previousCache.last_commit;
+      }
+      const diff = await getDiffFromCommits(baseSha, currentSha);
+      const { comments } = await generateCommentsFromLLM(diff);
+      const mapped = mapCommentsToDiff(diff, comments);
+      fs.writeFileSync('review-comments.json', JSON.stringify(mapped, null, 2));
+      saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
+      console.log('Review comments saved to review-comments.json');
+    } else if (args.includes('--post-comments')) {
+      // Read comments from file and post as review, respecting incremental review logic
+      const fileIdx = args.indexOf('--post-comments') + 1;
+      const filePath = args[fileIdx] || 'review-comments.json';
+      if (!fs.existsSync(filePath)) {
+        console.error(`Review comments file not found: ${filePath}`);
+        process.exit(1);
+      }
+      const mapped = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      let previousCache = await loadReviewCache();
+      if (!previousCache) {
+        await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+      } else {
+        const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
+        const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
+        if (relevantFixes.length === 0) {
+          await approvePullRequest();
+        } else {
+          await submitReview(relevantFixes, 'REQUEST_CHANGES');
+        }
+      }
+      console.log('Review comments posted to PR.');
+    } else if (args.includes('--approve')) {
+      // Approve the PR
+      await approvePullRequest();
+      console.log('PR approved.');
+    } else {
+      // Default: run the full review flow
+      await main();
+    }
+  })();
+}
