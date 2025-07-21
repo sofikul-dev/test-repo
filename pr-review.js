@@ -29,8 +29,10 @@ const GITHUB_API = 'https://api.github.com';
 
 function getCacheFileName() {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER } = process.env;
-  return `.bot-pr-review-${REPO_OWNER}-${REPO_NAME}-pr${PR_NUMBER}.json`;
+  const workspace = process.env.GITHUB_WORKSPACE || '.';
+  return path.join(workspace, `.bot-pr-review-${REPO_OWNER}-${REPO_NAME}-pr${PR_NUMBER}.json`);
 }
+
 
 async function getDiffFromCommits(base, head) {
   const { REPO_OWNER, REPO_NAME, GITHUB_TOKEN } = process.env;
@@ -159,8 +161,8 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 function saveReviewCache(data) {
-  const fileName = path.join(process.env.GITHUB_WORKSPACE || '.', getCacheFileName());
-  console.log(`Saving data ${data}`);
+  const fileName = getCacheFileName());
+  console.log(`Saving data ${JSON.stringify(data)}`);
   console.log(`Saving review cache to ${fileName}`);
   fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
 }
