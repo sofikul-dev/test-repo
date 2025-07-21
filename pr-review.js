@@ -2,7 +2,7 @@
 async function approvePullRequest(body = "LGTM! Approving.") {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   const payload = {
-    event: "REQUEST_CHANGES",
+    event: "APPROVED",
     body
   };
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
