@@ -143,7 +143,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   const payload = {
     event: mode,
     body: mode === 'APPROVE'
-      ? "Automated review: All previous issues are resolved. Approving PR."
+      ? "LGTM! Approving."
       : "Automated PR review found critical issues. See inline comments.",
   };
 
@@ -218,7 +218,7 @@ async function main() {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
 
-     saveReviewCache({ last_commit: '954e5d43af10d2cb37a6621cd0d3c609f408e91a', previous_comments: [] });
+    saveReviewCache({ last_commit: '954e5d43af10d2cb37a6621cd0d3c609f408e91a', previous_comments: [] });
     let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
