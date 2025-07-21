@@ -193,10 +193,8 @@ async function approvePullRequest(body = "LGTM! Approving.") {
   } catch (error) {
     if (error.response && error.response.status === 401) {
       console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
-    } else {
-      console.error(`Error approving PR: ${error.errors}`);
     }
-    console.error(`Error approving PR: ${error.errors}`);
+    console.error(`Error approving PR: ${JSON.stringify(error)}`);
     throw error;
   }
 }
