@@ -1,88 +1,18 @@
-// Utility to check required environment variables
-function checkEnvVars() {
-  const required = ["REPO_OWNER", "REPO_NAME", "PR_NUMBER", "GITHUB_TOKEN"];
-  for (const key of required) {
-	if (!process.env[key] || process.env[key] === "") {
-	  throw new Error(`Missing required environment variable: ${key}`);
-	}
+function calculate(operation: "add" | "subtract" | "multiply" | "divide", a: number, b: number): number | string {
+  switch (operation) {
+    case "add":
+      return a + b;
+    case "subtract":
+      return a - b;
+    case "multiply":
+      return a * b;
+    case "divide":
+      if (b === 0) return "Error: Cannot divide by zero";
+      return a / b;
+    default:
+      return "Error: Unknown operation";
   }
 }
-import { McpAgent } from "agents/mcp";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 
-// Define our MCP agent with tools
-export class MyMCP extends McpAgent {
-	server = new McpServer({
-		name: "Authless Calculator",
-		version: "1.0.0",
-	});
-
-	async init() {
-		this.server.tool(
-			"add",
-			{ a: z.number(), b: z.number() },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			})
-		);
-
-		this.server.tool(
-			"calculate",
-			{
-				operation: z.enum(["add", "subtract", "multiply", "divide"]),
-				a: z.number(),
-				b: z.number(),
-			},
-			async ({ operation, a, b }) => {
-				let result: number;
-				switch (operation) {
-					case "add":
-						result = a + b;
-						break;
-					case "subtract":
-						result = a - b;
-						break;
-					case "multiply":
-						result = a * b;
-						break;
-					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
-						result = a / b;
-						break;
-				}
-				return { content: [{ type: "text", text: String(result) }] };
-			}
-		);
-	}
-}
-
-export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-	try {
-	  checkEnvVars();
-	} catch (err) {
-	  console.error(err.message);
-	  return new Response("Missing required environment variables", { status: 500 });
-	}
-	const url = new URL(request.url);
-
-	if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-	  return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-	}
-
-	if (url.pathname === "/mcp") {
-	  return MyMCP.serve("/mcp").fetch(request, env, ctx);
-	}
-
-	return new Response("Not found", { status: 404 });
-  },
-};
+console.log(calculate("add", 2, 3)); // 5
+console.log(calculate("divide", 10, 0)); // Error: Cannot divide by zero
