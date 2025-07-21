@@ -11,7 +11,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
   try {
     const res = await axios.post(url, JSON.stringify(payload), {
       headers: {
-        Authorization: `${GITHUB_TOKEN}`,
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
       },
     });
     console.log(`PR approved: ${res.data.id}`);
