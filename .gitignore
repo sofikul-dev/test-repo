@@ -5,3 +5,8 @@ dist/
 *.log
 *.env
 .DS_Store
+
+.bot-pr-review*
+review-comments.json
+review-cache.json
+*.cache
