@@ -164,7 +164,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     });
     console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
   } catch (error) {
-    console.error(`Error submitting review: ${error.name} ${error.message}`, error.stack);
+    console.error(`Error submitting review: ${error.name} ${error.message}`);
     throw error;
   }
 }
@@ -172,6 +172,9 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 // Approve a pull request (no comments, body optional)
 async function approvePullRequest(body = "LGTM! Approving.") {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
+  if (!GITHUB_TOKEN || GITHUB_TOKEN.trim() === "") {
+    throw new Error("GITHUB_TOKEN is missing or empty. Please provide a valid token.");
+  }
   const payload = {
     event: "APPROVE",
     body
@@ -188,6 +191,11 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     console.log(`PR approved: ${res.data.id}`);
     return res.data;
   } catch (error) {
+    if (error.response && error.response.status === 401) {
+      console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
+    } else {
+      console.error(`Error approving PR: ${error.message}`);
+    }
     console.error(`Error approving PR: ${error.name} ${error.message}`);
     throw error;
   }
@@ -282,7 +290,7 @@ async function main() {
       }
     }
   } catch (err) {
-    console.error('Error in main function:', err.message, err.stack);
+    console.error('Error in main function:', err.message);
   }
 }
 
