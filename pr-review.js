@@ -206,7 +206,7 @@ async function main() {
 
     saveReviewCache({ last_commit: 'c98680e323216d2a1781e24603853498a68bf071', previous_comments: {} });
 
-    let previousCache = loadReviewCache();
+    let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
 
