@@ -164,7 +164,10 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     });
     console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
   } catch (error) {
-    console.error(`Error submitting review: ${error.name} ${error.message}`);
+    let errorMsg = `Error submitting review: ${error.message}`;
+    if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
+    if (error.status) errorMsg += ` | status: ${error.status}`;
+    console.error(errorMsg);
     throw error;
   }
 }
@@ -193,10 +196,11 @@ async function approvePullRequest(body = "LGTM! Approving.") {
   } catch (error) {
     if (error.response && error.response.status === 401) {
       console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
-    } else {
-      console.error(`Error approving PR: ${error.message}`);
     }
-    console.error(`Error approving PR: ${error.name} ${error.message}`);
+    let errorMsg = `Error approving PR: ${error.message}`;
+    if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
+    if (error.status) errorMsg += ` | status: ${error.status}`;
+    console.error(JSON.stringify('Approve error: ', error));
     throw error;
   }
 }
@@ -274,7 +278,20 @@ async function main() {
     if (!previousCache) {
       console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
-      await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+      const validEvents = ['REQUEST_CHANGES', 'APPROVE', 'COMMENT'];
+      const event = mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE';
+      if (!validEvents.includes(event)) {
+        console.error(`Invalid review event type: ${event}`);
+        throw new Error(`Invalid review event type: ${event}`);
+      }
+      console.log(`Submitting first review with event: ${event}`);
+      if(event === 'REQUEST_CHANGES') {
+        console.log(`Submitting review with ${mapped.length} comments.`);
+        await submitReview(mapped, event);
+      } else {
+        console.log('No comments found, approving PR.');
+        await approvePullRequest();
+      }
     } else {
       const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
       const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
