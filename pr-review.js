@@ -216,7 +216,6 @@ async function main() {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
 
-     saveReviewCache({ last_commit: '954e5d43af10d2cb37a6621cd0d3c609f408e91a', previous_comments: [] });
     let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
@@ -247,7 +246,7 @@ async function main() {
       if (relevantFixes.length === 0) {
         console.log('All previous issues are resolved. Approving.');
         saveReviewCache({ last_commit: currentSha, previous_comments: [] });
-        await submitReview([], 'APPROVE');
+        await submitReview(undefined, 'APPROVE'); // <-- Pass undefined instead of []
       } else {
         console.log('Some issues still remain. Requesting changes again.');
         saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
