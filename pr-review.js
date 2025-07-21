@@ -161,7 +161,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 function saveReviewCache(data) {
-  const fileName = getCacheFileName());
+  const fileName = getCacheFileName();
   console.log(`Saving data ${JSON.stringify(data)}`);
   console.log(`Saving review cache to ${fileName}`);
   fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
