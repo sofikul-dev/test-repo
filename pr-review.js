@@ -160,6 +160,8 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 
 function saveReviewCache(data) {
   const fileName = path.join(process.env.GITHUB_WORKSPACE || '.', getCacheFileName());
+  console.log(`Saving data ${data}`);
+  console.log(`Saving review cache to ${fileName}`);
   fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
 }
 
