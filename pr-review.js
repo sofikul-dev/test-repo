@@ -162,6 +162,18 @@ function saveReviewCache(data) {
   fs.writeFileSync(getCacheFileName(), JSON.stringify(data, null, 2));
 }
 
+async function getPrDetails() {
+  const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
+  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`;
+
+  const res = await axios.get(url, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}` },
+  });
+
+  return res.data;
+}
+
+
 async function loadReviewCache() {
   const fileName = getCacheFileName();
   if (fs.existsSync(fileName)) {
