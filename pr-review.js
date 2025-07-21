@@ -2,7 +2,7 @@
 async function approvePullRequest(body = "LGTM! Approving.") {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   const payload = {
-    event: "APPROVED",
+    event: "APPROVE",
     body
   };
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
@@ -11,9 +11,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
   try {
     const res = await axios.post(url, JSON.stringify(payload), {
       headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json',
+        Authorization: `${GITHUB_TOKEN}`,
       },
     });
     console.log(`PR approved: ${res.data.id}`);
