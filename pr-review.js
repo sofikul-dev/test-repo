@@ -19,7 +19,7 @@ const requiredEnvVars = [
 ];
 
 // Check for missing environment variables
-const missingVars = requiredEnvVars.filter((key) => !process.env[key]);
+const missingVars = requiredEnvVars.filter((key) => !process.env[key] || process.env[key].trim() === '');
 if (missingVars.length > 0) {
   throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
 }
@@ -36,23 +36,15 @@ async function getDiffFromCommits(base, head) {
   const { REPO_OWNER, REPO_NAME, GITHUB_TOKEN } = process.env;
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/compare/${base}...${head}`;
 
-  
-  const res = await axios.get(url, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
-  });
-
-  return res.data;
-}
-
-async function getPrDetails() {
-  const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
-  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}`;
-
-  const res = await axios.get(url, {
-    headers: { Authorization: `token ${GITHUB_TOKEN}` },
-  });
-
-  return res.data;
+  try {
+    const res = await axios.get(url, {
+      headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
+    });
+    return res.data;
+  } catch (error) {
+    console.error(`Error fetching diff from commits: ${error.message}`);
+    throw error;
+  }
 }
 
 async function generateCommentsFromLLM(diff) {
@@ -182,7 +174,19 @@ function loadReviewCache() {
   }
   return null;
 }
-
+async function loadReviewCache() {
+  const fileName = getCacheFileName();
+  if (fs.existsSync(fileName)) {
+    try {
+      const data = await fs.promises.readFile(fileName, 'utf8');
+      return JSON.parse(data);
+    } catch (err) {
+      console.error(`Error parsing cache file ${fileName}:`, err.message);
+      return null;
+    }
+  }
+  return null;
+}
 async function main() {
   try {
     const prDetails = await getPrDetails();
