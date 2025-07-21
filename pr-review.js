@@ -173,7 +173,10 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 // Approve a pull request (no comments, body optional)
-async function approvePullRequest(body = "LGTM! Approving.") {
+async function approvePullRequest(body) {
+   if (body == null || body === undefined || body === "") {
+    body = "LGTM! Approving.";
+  }
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   if (!GITHUB_TOKEN || GITHUB_TOKEN.trim() === "") {
     throw new Error("GITHUB_TOKEN is missing or empty. Please provide a valid token.");
@@ -188,7 +191,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
   try {
     const res = await axios.post(url, JSON.stringify(payload), {
       headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Authorization: `token ${GITHUB_TOKEN}`,
       },
     });
     console.log(`PR approved: ${res.data.id}`);
@@ -200,7 +203,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     let errorMsg = `Error approving PR: ${error.message}`;
     if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
     if (error.status) errorMsg += ` | status: ${error.status}`;
-    console.error(JSON.stringify('Approve error: ', error));
+    console.error(JSON.stringify('Approve error: ', JSON.stringify(error)));
     throw error;
   }
 }
@@ -265,6 +268,7 @@ async function main() {
       baseSha = prDetails.base.sha;
     } else if (previousCache.last_commit === currentSha) {
       console.log('No new commits since last review. Skipping.');
+      await approvePullRequest("Looks good to me. Approving.");
       return;
     } else {
       console.log('Re-review - using last reviewed commit for diff.');
@@ -290,7 +294,7 @@ async function main() {
         await submitReview(mapped, event);
       } else {
         console.log('No comments found, approving PR.');
-        await approvePullRequest();
+        await approvePullRequest("Looks good to me. Approving.");
       }
     } else {
       const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
@@ -299,7 +303,7 @@ async function main() {
       if (relevantFixes.length === 0) {
         console.log('All previous issues are resolved. Approving.');
         saveReviewCache({ last_commit: currentSha, previous_comments: [] });
-        await approvePullRequest();
+        await approvePullRequest("Looks good to me. Approving.");
       } else {
         console.log('Some issues still remain. Requesting changes again.');
         saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
