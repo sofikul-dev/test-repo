@@ -176,9 +176,15 @@ async function getPrDetails() {
 
 async function loadReviewCache() {
   const fileName = getCacheFileName();
+  console.log(`Loading review cache from ${fileName}`);
   if (fs.existsSync(fileName)) {
+    console.log(`Cache file exists: ${fileName}`);
     try {
       const data = await fs.promises.readFile(fileName, 'utf8');
+      if (!data || !data?.last_commit) {
+        console.warn(`Cache file ${fileName} is empty.`);
+        return null;
+      }
       return JSON.parse(data);
     } catch (err) {
       console.error(`Error parsing cache file ${fileName}:`, err.message);
@@ -212,6 +218,7 @@ async function main() {
     const mapped = mapCommentsToDiff(diff, comments);
 
     if (!previousCache) {
+      console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
       await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
     } else {
