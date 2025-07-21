@@ -164,7 +164,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     });
     console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
   } catch (error) {
-    console.error(`Error submitting review: ${error.name} ${error.message}`);
+    console.error(`Error submitting review: ${error.errors}`);
     throw error;
   }
 }
