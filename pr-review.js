@@ -173,7 +173,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 // Approve a pull request (no comments, body optional)
-async function approvePullRequest(body = "Looks good to me. Approving.") {
+async function approvePullRequest(body) {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   if (!GITHUB_TOKEN || GITHUB_TOKEN.trim() === "") {
     throw new Error("GITHUB_TOKEN is missing or empty. Please provide a valid token.");
@@ -290,7 +290,7 @@ async function main() {
         await submitReview(mapped, event);
       } else {
         console.log('No comments found, approving PR.');
-        await approvePullRequest();
+        await approvePullRequest("Looks good to me. Approving.");
       }
     } else {
       const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
