@@ -315,11 +315,11 @@ async function main() {
 }
 
 // CLI support for manual approval workflow
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log('Running as CLI script');
   const args = process.argv.slice(2);
   (async () => {
     if (args.includes('--collect-comments')) {
-      // Collect review comments and output to file, respecting incremental review logic
       const prDetails = await getPrDetails();
       const currentSha = prDetails.head.sha;
       let previousCache = await loadReviewCache();
