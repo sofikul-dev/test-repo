@@ -186,12 +186,13 @@ async function loadReviewCache() {
     console.log(`Cache file exists: ${fileName}`);
     try {
       const data = await fs.promises.readFile(fileName, 'utf8');
-      console.log('review cache data:', JSON.stringify(data));
-      if (!data || !data?.last_commit) {
+      if (!data) {
         console.log(`Cache file ${fileName} is empty.`);
         return null;
       }
-      return JSON.parse(data);
+      const dataJson = JSON.parse(data);
+      console.log('review cache data:', dataJson);
+      return dataJson;
     } catch (err) {
       console.error(`Error parsing cache file ${fileName}:`, err.message);
       return null;
