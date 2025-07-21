@@ -10,7 +10,6 @@ export class MyMCP extends McpAgent {
 	});
 
 	async init() {
-		// Simple addition tool
 		this.server.tool(
 			"add",
 			{ a: z.number(), b: z.number() },

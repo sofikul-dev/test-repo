@@ -169,6 +169,29 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   }
 }
 
+// Approve a pull request (no comments, body optional)
+async function approvePullRequest(body = "LGTM! Approving.") {
+  const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
+  const payload = {
+    event: "APPROVE",
+    body
+  };
+  const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
+  console.log(`Submitting approval for PR #${PR_NUMBER}`);
+  console.log(`Payload: ${JSON.stringify(payload, null, 2)}`);
+  try {
+    const res = await axios.post(url, JSON.stringify(payload), {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+      },
+    });
+    console.log(`PR approved: ${res.data.id}`);
+    return res.data;
+  } catch (error) {
+    console.error(`Error approving PR: ${error.name} ${error.message}`);
+    throw error;
+  }
+}
 function saveReviewCache(data) {
   const fileName = getCacheFileName();
   console.log(`Saving data ${JSON.stringify(data)}`);
@@ -251,7 +274,7 @@ async function main() {
       if (relevantFixes.length === 0) {
         console.log('All previous issues are resolved. Approving.');
         saveReviewCache({ last_commit: currentSha, previous_comments: [] });
-        await submitReview(undefined, 'APPROVE'); // <-- Pass undefined instead of []
+        await approvePullRequest();
       } else {
         console.log('Some issues still remain. Requesting changes again.');
         saveReviewCache({ last_commit: currentSha, previous_comments: relevantFixes });
