@@ -211,6 +211,8 @@ async function main() {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
 
+    saveReviewCache({ last_commit: '097c3d1e6960409f778aa49c4afc57543ac6e737', previous_comments: [] });
+
     let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
