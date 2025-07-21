@@ -278,7 +278,7 @@ async function main() {
       console.log(`Submitting first review with event: ${event}`);
       if(event === 'REQUEST_CHANGES') {
         console.log(`Submitting review with ${mapped.length} comments.`);
-        await submitReview(mapped, 'REQUEST_CHANGES');
+        await submitReview(mapped, event);
       } else {
         console.log('No comments found, approving PR.');
         await approvePullRequest();
