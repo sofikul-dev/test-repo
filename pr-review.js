@@ -173,7 +173,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 // Approve a pull request (no comments, body optional)
-async function approvePullRequest(body = "LGTM! Approving.") {
+async function approvePullRequest(body = "LGTM!") {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
   if (!GITHUB_TOKEN || GITHUB_TOKEN.trim() === "") {
     throw new Error("GITHUB_TOKEN is missing or empty. Please provide a valid token.");
