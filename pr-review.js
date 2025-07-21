@@ -162,18 +162,6 @@ function saveReviewCache(data) {
   fs.writeFileSync(getCacheFileName(), JSON.stringify(data, null, 2));
 }
 
-function loadReviewCache() {
-  const fileName = getCacheFileName();
-  if (fs.existsSync(fileName)) {
-    try {
-      return JSON.parse(fs.readFileSync(fileName));
-    } catch (err) {
-      console.error(`Error parsing cache file ${fileName}:`, err.message);
-      return null;
-    }
-  }
-  return null;
-}
 async function loadReviewCache() {
   const fileName = getCacheFileName();
   if (fs.existsSync(fileName)) {
