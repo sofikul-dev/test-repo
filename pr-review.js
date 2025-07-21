@@ -196,6 +196,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     } else {
       console.error(`Error approving PR: ${error.message}`);
     }
+    console.error(`Error approving PR: ${error.name} ${error.message}`);
     throw error;
   }
 }
