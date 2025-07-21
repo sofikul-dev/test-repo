@@ -164,7 +164,10 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     });
     console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
   } catch (error) {
-    console.error(`Error submitting review: ${error.message}: ${error.errors}:  ${error.status}`);
+    let errorMsg = `Error submitting review: ${error.message}`;
+    if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
+    if (error.status) errorMsg += ` | status: ${error.status}`;
+    console.error(errorMsg);
     throw error;
   }
 }
@@ -194,7 +197,10 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     if (error.response && error.response.status === 401) {
       console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
     }
-    console.error(`Error approving PR: ${error.message}: ${error.errors}:  ${error.status}`);
+    let errorMsg = `Error approving PR: ${error.message}`;
+    if (error.errors) errorMsg += ` | errors: ${JSON.stringify(error.errors)}`;
+    if (error.status) errorMsg += ` | status: ${error.status}`;
+    console.error(errorMsg);
     throw error;
   }
 }
@@ -272,7 +278,12 @@ async function main() {
     if (!previousCache) {
       console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
+      const validEvents = ['REQUEST_CHANGES', 'APPROVE', 'COMMENT'];
       const event = mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE';
+      if (!validEvents.includes(event)) {
+        console.error(`Invalid review event type: ${event}`);
+        throw new Error(`Invalid review event type: ${event}`);
+      }
       console.log(`Submitting first review with event: ${event}`);
       if(event === 'REQUEST_CHANGES') {
         console.log(`Submitting review with ${mapped.length} comments.`);
