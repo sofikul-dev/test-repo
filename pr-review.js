@@ -9,6 +9,21 @@ import path from 'path';
 
 dotenv.config();
 
+// List of required environment variables
+const requiredEnvVars = [
+  'OPENAI_API_KEY',
+  'REPO_OWNER',
+  'REPO_NAME',
+  'PR_NUMBER',
+  'GITHUB_TOKEN'
+];
+
+// Check for missing environment variables
+const missingVars = requiredEnvVars.filter((key) => !process.env[key]);
+if (missingVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const GITHUB_API = 'https://api.github.com';
 
@@ -21,6 +36,7 @@ async function getDiffFromCommits(base, head) {
   const { REPO_OWNER, REPO_NAME, GITHUB_TOKEN } = process.env;
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/compare/${base}...${head}`;
 
+  
   const res = await axios.get(url, {
     headers: { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3.diff' },
   });
@@ -157,7 +173,12 @@ function saveReviewCache(data) {
 function loadReviewCache() {
   const fileName = getCacheFileName();
   if (fs.existsSync(fileName)) {
-    return JSON.parse(fs.readFileSync(fileName));
+    try {
+      return JSON.parse(fs.readFileSync(fileName));
+    } catch (err) {
+      console.error(`Error parsing cache file ${fileName}:`, err.message);
+      return null;
+    }
   }
   return null;
 }
