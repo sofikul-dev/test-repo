@@ -209,8 +209,8 @@ async function approvePullRequest(body) {
 }
 function saveReviewCache(data) {
   const fileName = getCacheFileName();
-  console.log(`Saving data ${JSON.stringify(data)}`);
-  console.log(`Saving review cache to ${fileName}`);
+  //console.log(`Saving data ${JSON.stringify(data)}`);
+  //console.log(`Saving review cache to ${fileName}`);
   fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
 }
 
@@ -228,26 +228,26 @@ async function getPrDetails() {
 
 async function loadReviewCache() {
   const fileName = getCacheFileName();
-  console.log(`Loading review cache from ${fileName}`);
+  //console.log(`Loading review cache from ${fileName}`);
   if (fs.existsSync(fileName)) {
-    console.log(`Cache file exists: ${fileName}`);
+    //console.log(`Cache file exists: ${fileName}`);
     try {
       const data = await fs.promises.readFile(fileName, 'utf8');
       if (!data) {
-        console.log(`Cache file ${fileName} is empty.`);
+        //console.log(`Cache file ${fileName} is empty.`);
         return null;
       }
       let dataJson;
       try {
         dataJson = JSON.parse(data);
-        console.log('review cache data:', dataJson);
+        //console.log('review cache data:', dataJson);
         return dataJson;
       } catch (parseError) {
-        console.error('Error parsing JSON:', parseError.message);
+        //console.error('Error parsing JSON:', parseError.message);
         return null;
       }
     } catch (err) {
-      console.error(`Error parsing cache file ${fileName}:`, err.message);
+      //console.error(`Error parsing cache file ${fileName}:`, err.message);
       return null;
     }
   }
@@ -268,7 +268,6 @@ async function main() {
       baseSha = prDetails.base.sha;
     } else if (previousCache.last_commit === currentSha) {
       console.log('No new commits since last review. Skipping.');
-      await approvePullRequest("Looks good to me. Approving.");
       return;
     } else {
       console.log('Re-review - using last reviewed commit for diff.');
@@ -315,4 +314,68 @@ async function main() {
   }
 }
 
-main();
+// CLI support for manual approval workflow
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log('Running as CLI script');
+  const args = process.argv.slice(2);
+  (async () => {
+    if (args.includes('--collect-comments')) {
+      const prDetails = await getPrDetails();
+      const currentSha = prDetails.head.sha;
+      let previousCache = await loadReviewCache();
+      let baseSha;
+      if (!previousCache) {
+        baseSha = prDetails.base.sha;
+      } else if (previousCache.last_commit === currentSha) {
+        fs.writeFileSync('review-comments.json', JSON.stringify([], null, 2));
+        return;
+      } else {
+        baseSha = previousCache.last_commit;
+      }
+      const diff = await getDiffFromCommits(baseSha, currentSha);
+      const { comments } = await generateCommentsFromLLM(diff);
+      const mapped = mapCommentsToDiff(diff, comments);
+      fs.writeFileSync('review-comments.json', JSON.stringify(mapped, null, 2));
+      saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
+    } else if (args.includes('--post-comments')) {
+      // Read comments from file and post as review, respecting incremental review logic
+      const fileIdx = args.indexOf('--post-comments') + 1;
+      const filePath = args[fileIdx] || 'review-comments.json';
+      if (!fs.existsSync(filePath)) {
+        console.error(`Review comments file not found: ${filePath}`);
+        process.exit(1);
+      }
+      let mapped;
+      try {
+        mapped = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch (err) {
+        console.error(`Error parsing review comments file: ${filePath}. Make sure it contains valid JSON.`);
+        process.exit(1);
+      }
+      if (!Array.isArray(mapped)) {
+        console.error(`Review comments file must contain a JSON array. Found: ${typeof mapped}`);
+        process.exit(1);
+      }
+      let previousCache = await loadReviewCache();
+      if (!previousCache) {
+        await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
+      } else {
+        const previousLines = previousCache.previous_comments.map(c => ({ path: c.path, line: c.line }));
+        const relevantFixes = mapped.filter(c => previousLines.some(prev => prev.path === c.path && prev.line === c.line));
+        if (relevantFixes.length === 0) {
+          await approvePullRequest();
+        } else {
+          await submitReview(relevantFixes, 'REQUEST_CHANGES');
+        }
+      }
+      console.log('Review comments posted to PR.');
+    } else if (args.includes('--approve')) {
+      // Approve the PR
+      await approvePullRequest();
+      console.log('PR approved.');
+    } else {
+      // Default: run the full review flow
+      await main();
+    }
+  })();
+}
