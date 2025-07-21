@@ -140,15 +140,15 @@ function mapCommentsToDiff(diff, llmComments) {
 async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
   const { REPO_OWNER, REPO_NAME, PR_NUMBER, GITHUB_TOKEN } = process.env;
 
-  const payload = {
-    event: mode,
-    body: mode === 'APPROVE'
-      ? "LGTM! Approving."
-      : "Automated PR review found critical issues. See inline comments.",
-  };
-
-  if ((mode === 'REQUEST_CHANGES' || mode === 'COMMENT') && mappedComments && mappedComments.length > 0) {
-    payload.comments = mappedComments;
+  let payload = { event: mode };
+  if (mode === 'APPROVE') {
+    // body is optional for approve, comments must NOT be present
+    payload.body = "LGTM! Approving.";
+  } else if ((mode === 'REQUEST_CHANGES' || mode === 'COMMENT')) {
+    payload.body = "Automated PR review found critical issues. See inline comments.";
+    if (mappedComments && mappedComments.length > 0) {
+      payload.comments = mappedComments;
+    }
   }
 
   console.log(`Submitting review with mode: ${mode}`);
