@@ -142,11 +142,13 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 
   const payload = {
     event: mode,
+    body: mode === 'APPROVE'
+      ? "Automated review: All previous issues are resolved. Approving PR."
+      : "Automated PR review found critical issues. See inline comments.",
   };
 
-  if (mode === 'REQUEST_CHANGES' && mappedComments && mappedComments.length > 0) {
+  if ((mode === 'REQUEST_CHANGES' || mode === 'COMMENT') && mappedComments && mappedComments.length > 0) {
     payload.comments = mappedComments;
-    payload.body = "Automated PR review found critical issues. See inline comments.";
   }
 
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
