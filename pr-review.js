@@ -193,6 +193,7 @@ async function main() {
     const currentSha = prDetails.head.sha;
 
     let previousCache = loadReviewCache();
+    console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
 
     if (!previousCache) {
