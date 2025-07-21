@@ -201,6 +201,8 @@ async function main() {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
 
+    saveReviewCache({ last_commit: 'c98680e323216d2a1781e24603853498a68bf071', previous_comments: {} });
+
     let previousCache = loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
     let baseSha;
@@ -220,7 +222,6 @@ async function main() {
     const { comments } = await generateCommentsFromLLM(diff);
     const mapped = mapCommentsToDiff(diff, comments);
 
-    saveReviewCache({ last_commit: 'c98680e323216d2a1781e24603853498a68bf071', previous_comments: mapped });
 
     if (!previousCache) {
       console.log('First review - saving all comments.', { last_commit: currentSha, previous_comments: mapped });
