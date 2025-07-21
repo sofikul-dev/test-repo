@@ -1,0 +1,23 @@
+{
+  "last_commit": "2ad90a981ebe4bd03327d7a7ab6e8a1c933883dd",
+  "previous_comments": [
+    {
+      "path": "pr-review.js",
+      "line": 203,
+      "side": "RIGHT",
+      "body": "Issue: The use of `JSON.stringify` with a string and an error object is incorrect and will not produce the intended output. It will stringify the string and ignore the error object.\n\n**Suggestion:** Use template literals or string concatenation to properly format the error message: `console.error('Approve error:', error);`"
+    },
+    {
+      "path": "pr-review.js",
+      "line": 283,
+      "side": "RIGHT",
+      "body": "Issue: The check for valid events is redundant because the `event` variable is always set to either 'REQUEST_CHANGES' or 'APPROVE', both of which are included in `validEvents`.\n\n**Suggestion:** Remove the redundant check for valid events to simplify the code."
+    },
+    {
+      "path": "pr-review.js",
+      "line": 288,
+      "side": "RIGHT",
+      "body": "Issue: The logic for handling 'REQUEST_CHANGES' and 'APPROVE' events is clear, but the code could be simplified by directly calling `submitReview` with the `event` variable, as the `approvePullRequest` function is already called within `submitReview` when the event is 'APPROVE'.\n\n**Suggestion:** Simplify the logic by directly calling `await submitReview(mapped, event);` without the conditional check for `event === 'REQUEST_CHANGES'`. Ensure `submitReview` handles both events appropriately."
+    }
+  ]
+}

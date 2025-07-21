@@ -13,35 +13,35 @@ jobs:
       contents: read
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        path: repo
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          path: repo
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-    - name: Restore PR Review Cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          .bot-pr-review-*
-        key: pr-review-${{ github.repository_owner }}-${{ github.event.repository.name }}-pr${{ github.event.pull_request.number }}
-        restore-keys: |
-          pr-review-${{ github.repository_owner }}-${{ github.event.repository.name }}-pr${{ github.event.pull_request.number }}
+      - name: Restore PR Review Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .bot-pr-review-*
+          key: pr-review-${{ github.repository_owner }}-${{ github.event.repository.name }}-pr${{ github.event.pull_request.number }}
+          restore-keys: |
+            pr-review-${{ github.repository_owner }}-${{ github.event.repository.name }}-pr${{ github.event.pull_request.number }}
 
-    - name: Install dependencies
-      run: npm install
-      working-directory: repo
+      - name: Install dependencies
+        run: npm install
+        working-directory: repo
 
-    - name: Run PR Review Bot
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        REPO_OWNER: ${{ github.repository_owner }}
-        REPO_NAME: ${{ github.event.repository.name }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-      run: node pr-review.js
-      working-directory: repo
+      - name: Run PR Review Bot
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node pr-review.js
+        working-directory: repo

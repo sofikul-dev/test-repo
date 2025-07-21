@@ -268,6 +268,7 @@ async function main() {
       baseSha = prDetails.base.sha;
     } else if (previousCache.last_commit === currentSha) {
       console.log('No new commits since last review. Skipping.');
+      await approvePullRequest("Looks good to me. Approving.");
       return;
     } else {
       console.log('Re-review - using last reviewed commit for diff.');
