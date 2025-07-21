@@ -145,19 +145,24 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     body: mode === 'APPROVE'
       ? 'All issues are resolved. Approving the PR ✅'
       : 'Automated PR review found critical issues. See inline comments.',
-    comments: mode === 'REQUEST_CHANGES' ? mappedComments : undefined,
+    // Only add comments if requesting changes
+    ...(mode === 'REQUEST_CHANGES' && { comments: mappedComments }),
   };
 
   const url = `${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${PR_NUMBER}/reviews`;
 
-  const res = await axios.post(url, payload, {
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      Accept: 'application/vnd.github+json',
-    },
-  });
-
-  console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
+  try {
+    const res = await axios.post(url, payload, {
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: 'application/vnd.github+json',
+      },
+    });
+    console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
+  } catch (error) {
+    console.error(`Error submitting review: ${error.name} ${error.message}`, error.stack);
+    throw error;
+  }
 }
 
 function saveReviewCache(data) {
@@ -210,8 +215,6 @@ async function main() {
   try {
     const prDetails = await getPrDetails();
     const currentSha = prDetails.head.sha;
-
-    saveReviewCache({ last_commit: '097c3d1e6960409f778aa49c4afc57543ac6e737', previous_comments: [] });
 
     let previousCache = await loadReviewCache();
     console.log(`Loaded previous cache: ${JSON.stringify(previousCache)}`);
