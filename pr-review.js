@@ -228,26 +228,26 @@ async function getPrDetails() {
 
 async function loadReviewCache() {
   const fileName = getCacheFileName();
-  console.log(`Loading review cache from ${fileName}`);
+  //console.log(`Loading review cache from ${fileName}`);
   if (fs.existsSync(fileName)) {
-    console.log(`Cache file exists: ${fileName}`);
+    //console.log(`Cache file exists: ${fileName}`);
     try {
       const data = await fs.promises.readFile(fileName, 'utf8');
       if (!data) {
-        console.log(`Cache file ${fileName} is empty.`);
+        //console.log(`Cache file ${fileName} is empty.`);
         return null;
       }
       let dataJson;
       try {
         dataJson = JSON.parse(data);
-        console.log('review cache data:', dataJson);
+        //console.log('review cache data:', dataJson);
         return dataJson;
       } catch (parseError) {
-        console.error('Error parsing JSON:', parseError.message);
+        //console.error('Error parsing JSON:', parseError.message);
         return null;
       }
     } catch (err) {
-      console.error(`Error parsing cache file ${fileName}:`, err.message);
+      //console.error(`Error parsing cache file ${fileName}:`, err.message);
       return null;
     }
   }
@@ -327,7 +327,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       if (!previousCache) {
         baseSha = prDetails.base.sha;
       } else if (previousCache.last_commit === currentSha) {
-        console.log('No new commits since last review. Skipping.');
         fs.writeFileSync('review-comments.json', JSON.stringify([], null, 2));
         return;
       } else {
@@ -338,7 +337,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const mapped = mapCommentsToDiff(diff, comments);
       fs.writeFileSync('review-comments.json', JSON.stringify(mapped, null, 2));
       saveReviewCache({ last_commit: currentSha, previous_comments: mapped });
-      console.log('Review comments saved to review-comments.json');
     } else if (args.includes('--post-comments')) {
       // Read comments from file and post as review, respecting incremental review logic
       const fileIdx = args.indexOf('--post-comments') + 1;
