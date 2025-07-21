@@ -345,7 +345,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error(`Review comments file not found: ${filePath}`);
         process.exit(1);
       }
-      const mapped = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      let mapped;
+      try {
+        mapped = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch (err) {
+        console.error(`Error parsing review comments file: ${filePath}. Make sure it contains valid JSON.`);
+        process.exit(1);
+      }
+      if (!Array.isArray(mapped)) {
+        console.error(`Review comments file must contain a JSON array. Found: ${typeof mapped}`);
+        process.exit(1);
+      }
       let previousCache = await loadReviewCache();
       if (!previousCache) {
         await submitReview(mapped, mapped.length > 0 ? 'REQUEST_CHANGES' : 'APPROVE');
