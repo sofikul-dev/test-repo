@@ -159,7 +159,8 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
 }
 
 function saveReviewCache(data) {
-  fs.writeFileSync(getCacheFileName(), JSON.stringify(data, null, 2));
+  const fileName = path.join(process.env.GITHUB_WORKSPACE || '.', getCacheFileName());
+  fs.writeFileSync(fileName, JSON.stringify(data, null, 2));
 }
 
 async function getPrDetails() {
