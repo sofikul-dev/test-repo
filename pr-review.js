@@ -191,7 +191,7 @@ async function approvePullRequest(body) {
   try {
     const res = await axios.post(url, JSON.stringify(payload), {
       headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Authorization: `token ${GITHUB_TOKEN}`,
       },
     });
     console.log(`PR approved: ${res.data.id}`);
