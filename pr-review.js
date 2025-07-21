@@ -164,7 +164,7 @@ async function submitReview(mappedComments, mode = 'REQUEST_CHANGES') {
     });
     console.log(`Review submitted: ${res.data.id}, Mode: ${mode}`);
   } catch (error) {
-    console.error(`Error submitting review: ${JSON.stringify(error)}`);
+    console.error(`Error submitting review: ${error.message}: ${error.errors}:  ${error.status}`);
     throw error;
   }
 }
@@ -194,7 +194,7 @@ async function approvePullRequest(body = "LGTM! Approving.") {
     if (error.response && error.response.status === 401) {
       console.error("Error: Unauthorized. The GITHUB_TOKEN may be invalid or expired.");
     }
-    console.error(`Error approving PR: ${JSON.stringify(error)}`);
+    console.error(`Error approving PR: ${error.message}: ${error.errors}:  ${error.status}`);
     throw error;
   }
 }
