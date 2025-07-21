@@ -75,7 +75,7 @@ export default {
 	}
 	const url = new URL(request.url);
 
-	console.log("Request URL:", url.pathname);
+	console.log("Request endpoint:", url.pathname);
 
 	if (url.pathname === "/sse" || url.pathname === "/sse/message") {
 	  console.log("Handling SSE request");
