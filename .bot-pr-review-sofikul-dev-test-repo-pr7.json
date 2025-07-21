@@ -1,0 +1,23 @@
+{
+  "last_commit": "f5a19ab9029496cdaaecd74092bb5bb92c4de092",
+  "previous_comments": [
+    {
+      "path": "pr-review.js",
+      "line": 197,
+      "side": "RIGHT",
+      "body": "Issue: The error message is logged twice, which is redundant and can clutter the logs.\n\n**Suggestion:** Remove the duplicate error logging line to avoid redundancy and keep the logs clean."
+    },
+    {
+      "path": "pr-review.js",
+      "line": 293,
+      "side": "RIGHT",
+      "body": "Issue: The error stack is not logged, which might be useful for debugging purposes in non-production environments.\n\n**Suggestion:** Consider logging the error stack conditionally based on the environment, e.g., only in development mode, to aid in debugging while avoiding exposure in production."
+    },
+    {
+      "path": "pr-review.js",
+      "line": 175,
+      "side": "RIGHT",
+      "body": "Issue: The check for GITHUB_TOKEN being empty or null is good, but it should be extended to other critical environment variables as well.\n\n**Suggestion:** Add similar null or empty checks for REPO_OWNER, REPO_NAME, and PR_NUMBER to ensure all critical environment variables are validated before use."
+    }
+  ]
+}
