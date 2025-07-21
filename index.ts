@@ -1,3 +1,12 @@
+// Utility to check required environment variables
+function checkEnvVars() {
+  const required = ["REPO_OWNER", "REPO_NAME", "PR_NUMBER", "GITHUB_TOKEN"];
+  for (const key of required) {
+	if (!process.env[key] || process.env[key] === "") {
+	  throw new Error(`Missing required environment variable: ${key}`);
+	}
+  }
+}
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -57,20 +66,26 @@ export class MyMCP extends McpAgent {
 }
 
 export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		const url = new URL(request.url);
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+	try {
+	  checkEnvVars();
+	} catch (err) {
+	  console.error(err.message);
+	  return new Response("Missing required environment variables", { status: 500 });
+	}
+	const url = new URL(request.url);
 
-        console.log("Request URL:", url.pathname);
+	console.log("Request URL:", url.pathname);
 
-		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-			console.log("Handling SSE request");
-			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-		}
+	if (url.pathname === "/sse" || url.pathname === "/sse/message") {
+	  console.log("Handling SSE request");
+	  return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
+	}
 
-		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
+	if (url.pathname === "/mcp") {
+	  return MyMCP.serve("/mcp").fetch(request, env, ctx);
+	}
 
-		return new Response("Not found", { status: 404 });
-	},
+	return new Response("Not found", { status: 404 });
+  },
 };
