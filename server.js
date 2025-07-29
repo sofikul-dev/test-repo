@@ -21,6 +21,7 @@ app.post('/todos', (req, res) => {
 
 // 📖 Get all todos
 app.get('/todos', (req, res) => {
+  // TODO: Implement pagination and filtering
   res.json(todos);
 });
 
