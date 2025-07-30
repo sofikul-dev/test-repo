@@ -1,88 +1,64 @@
-// Utility to check required environment variables
-function checkEnvVars() {
-  const required = ["REPO_OWNER", "REPO_NAME", "PR_NUMBER", "GITHUB_TOKEN"];
-  for (const key of required) {
-	if (!process.env[key] || process.env[key] === "") {
-	  throw new Error(`Missing required environment variable: ${key}`);
-	}
-  }
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// In-memory todos
+interface Todo {
+  id: number;
+  title: string;
+  completed: boolean;
 }
-import { McpAgent } from "agents/mcp";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
+let todos: Todo[] = [];
+let idCounter = 1;
 
-// Define our MCP agent with tools
-export class MyMCP extends McpAgent {
-	server = new McpServer({
-		name: "Authless Calculator",
-		version: "1.0.0",
-	});
 
-	async init() {
-		this.server.tool(
-			"add",
-			{ a: z.number(), b: z.number() },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			})
-		);
+app.post('/todos', (req, res) => {
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title is required' });
 
-		this.server.tool(
-			"calculate",
-			{
-				operation: z.enum(["add", "subtract", "multiply", "divide"]),
-				a: z.number(),
-				b: z.number(),
-			},
-			async ({ operation, a, b }) => {
-				let result: number;
-				switch (operation) {
-					case "add":
-						result = a + b;
-						break;
-					case "subtract":
-						result = a - b;
-						break;
-					case "multiply":
-						result = a * b;
-						break;
-					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
-						result = a / b;
-						break;
-				}
-				return { content: [{ type: "text", text: String(result) }] };
-			}
-		);
-	}
-}
+  const todo = { id: idCounter++, title, completed: false };
+  todos.push(todo);
+  res.status(201).json(todo);
+});
 
-export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext) {
-	try {
-	  checkEnvVars();
-	} catch (err) {
-	  console.error(err.message);
-	  return new Response("Missing required environment variables", { status: 500 });
-	}
-	const url = new URL(request.url);
 
-	if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-	  return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-	}
+app.get('/todos', (req, res) => {
+  // TODO: Implement pagination and filtering
+  res.json(todos);
+});
 
-	if (url.pathname === "/mcp") {
-	  return MyMCP.serve("/mcp").fetch(request, env, ctx);
-	}
 
-	return new Response("Not found", { status: 404 });
-  },
-};
+app.get('/todos/:id', (req, res) => {
+  const todo = todos.find(t => t.id === parseInt(req.params.id));
+  if (!todo) return res.status(404).json({ error: 'Todo not found' });
+  res.json(todo);
+});
+
+
+app.put('/todos/:id', (req, res) => {
+  const todo = todos.find(t => t.id === parseInt(req.params.id));
+  if (!todo) return res.status(404).json({ error: 'Todo not found' });
+
+  const { title, completed } = req.body;
+  if (title !== undefined) todo.title = title;
+  if (completed !== undefined) todo.completed = completed;
+
+  res.json(todo);
+});
+
+
+app.delete('/todos/:id', (req, res) => {
+  const index = todos.findIndex(t => t.id === parseInt(req.params.id));
+  if (index === -1) return res.status(404).json({ error: 'Todo not found' });
+
+  const deleted = todos.splice(index, 1);
+  res.json({ message: 'Todo deleted', todo: deleted[0] });
+});
+
+
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
